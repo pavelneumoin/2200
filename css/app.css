@@ -30,7 +30,7 @@ svg.ic { display: inline-block; flex-shrink: 0; vertical-align: middle; }
   position: sticky; top: 0; z-index: 50;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 10px clamp(16px,5vw,44px); min-height: 64px;
-  background: rgba(255,255,255,0.86); backdrop-filter: blur(10px);
+  background: var(--white); box-shadow: var(--shadow-xs);
   border-bottom: 1px solid var(--border-subtle);
 }
 .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
@@ -147,7 +147,7 @@ svg.ic { display: inline-block; flex-shrink: 0; vertical-align: middle; }
 .match-left { background: var(--gray-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px 14px; font-size: var(--text-sm); color: var(--text-strong); font-weight: 600; }
 
 /* sticky mobile bars */
-.sticky-top { position: sticky; top: 0; z-index: 30; background: rgba(237,243,249,0.92); backdrop-filter: blur(8px); }
+.sticky-top { position: sticky; top: 0; z-index: 30; background: var(--surface-page); box-shadow: 0 4px 12px rgba(27,48,80,0.05); }
 .sticky-bottom { position: sticky; bottom: 0; z-index: 30; background: linear-gradient(180deg, rgba(237,243,249,0) 0%, var(--surface-page) 38%); padding: 14px 16px; }
 
 /* ---------- results ---------- */
