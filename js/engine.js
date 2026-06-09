@@ -34,7 +34,7 @@
       const gd = await loadGrade(slug, grade);
       let pool = flatten(gd);
       if (mode === 'blitz') { const only = pool.filter(p => p.ty === 'choice'); if (only.length >= 8) pool = only; }
-      const n = mode === 'blitz' ? 12 : 17;
+      const n = mode === 'blitz' ? 12 : mode === 'cards' ? 20 : 17;
       questions = shuffle(pool).slice(0, n).map(p => normalize(p.raw, p.ty));
     }
     questions.forEach((q, i) => q.id = i);

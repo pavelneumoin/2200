@@ -45,7 +45,7 @@
   function gColor(g) { return (GRADE[g] || GRADE[2]).c; }
 
   /* ---------- state ---------- */
-  const App = { catalog: null, route: null, session: null, result: null, pre: null, trainSlug: '', trainGrade: '', trainMode: 'train', cabRole: 'student', _timer: null, _scroll: 0 };
+  const App = { catalog: null, route: null, session: null, result: null, cards: null, pre: null, trainSlug: '', trainGrade: '', trainMode: 'train', cabRole: 'student', _timer: null, _scroll: 0 };
   window.App = App;
 
   /* ---------- nav ---------- */
@@ -69,6 +69,7 @@
     else if (r.name === 'scope') v = viewScope();
     else if (r.name === 'train') v = viewTrain();
     else if (r.name === 'test') { if (!App.session) { go('#/train'); return; } enterTest(); return; }
+    else if (r.name === 'cards') { if (!App.cards) { go('#/train'); return; } v = viewCards(); }
     else if (r.name === 'results') { if (!App.result) { go('#/'); return; } v = viewResults(); }
     else if (r.name === 'review') { if (!App.result) { go('#/'); return; } v = viewReview(); }
     else if (r.name === 'cabinet') v = viewCabinet(r.parts[0] || App.cabRole);
@@ -185,6 +186,7 @@
         '<div><label class="ds-select-field__label" style="display:block;margin-bottom:10px">Режим</label><div class="mode-pick">' +
           modeTile('train', 'graduation-cap', 'Тренировка', '17 вопросов, 45 минут. Случайный вариант.', false, '') +
           modeTile('blitz', 'zap', 'Блиц', '12 быстрых вопросов с выбором ответа.', false, '') +
+          modeTile('cards', 'book-marked', 'Карточки', 'Без оценки: смотри вопрос, проверяй себя, отмечай «знаю / не знаю».', false, '') +
           modeTile('mistakes', 'rotate-ccw', 'Работа над ошибками', mistakeCount ? ('Повторите ' + mistakeCount + ' ' + plural(mistakeCount, 'задание', 'задания', 'заданий') + ', где была ошибка.') : 'Появится после первой тренировки с ошибками.', !mistakeCount, mistakeCount ? String(mistakeCount) : '') +
         '</div></div>' +
         '<button class="ds-btn ds-btn--primary ds-btn--lg ds-btn--block" id="btn-start"' + (canStart ? '' : ' disabled') + '>Начать ' + ic('arrow-right', 19) + '</button>' +
@@ -201,7 +203,7 @@
         document.getElementById('sel-grade').addEventListener('change', e => { App.trainGrade = e.target.value; render(); });
         document.querySelectorAll('.mode-tile').forEach(b => b.addEventListener('click', () => { if (b.disabled) return; App.trainMode = b.getAttribute('data-mode'); render(); }));
         const sb = document.getElementById('btn-start');
-        if (sb) sb.addEventListener('click', () => { if (canStart) startTest(slug, +grade, App.trainMode); });
+        if (sb) sb.addEventListener('click', () => { if (!canStart) return; if (App.trainMode === 'cards') startCards(slug, +grade); else startTest(slug, +grade, App.trainMode); });
       }
     };
   }
@@ -344,6 +346,69 @@
     window.Store.clearActive();
     App.result = { score: sc, session: s };
     go('#/results');
+  }
+
+  /* ---------- FLASHCARDS ---------- */
+  function startCards(slug, grade) {
+    app.innerHTML = '<div class="wrap"><div class="empty"><span class="empty__ic">' + ic('book-marked', 26) + '</span><div>Готовим карточки…</div></div></div>';
+    window.Engine.buildSession(slug, grade, 'cards').then(function (s) {
+      if (!s.questions.length) { app.innerHTML = '<div class="wrap"><div class="empty">Не удалось собрать карточки. <a href="#/train">Назад</a></div></div>'; return; }
+      App.cards = { slug: slug, subject: s.subject, grade: grade, items: s.questions, idx: 0, revealed: false, known: 0, unknown: 0, unknownItems: [], done: false };
+      if (parseHash().name === 'cards') render(); else go('#/cards');
+    }).catch(function () { app.innerHTML = '<div class="wrap"><div class="empty">Ошибка загрузки. <a href="#/train">Назад</a></div></div>'; });
+  }
+  function viewCards() { return { html: cardsShell(), mount: wireCards }; }
+  function cardAnswer(q) {
+    if (q.ty === 'single') return math(q.o[q.a]);
+    if (q.ty === 'text') return math(q.ans.join(' / '));
+    if (q.ty === 'match') return '<div class="match-list" style="margin-top:6px">' + q.L.map(function (l, i) { return '<div class="match-row" style="grid-template-columns:1fr"><div class="match-left">' + math(l) + ' → ' + math(q.R[q.p[i]]) + '</div></div>'; }).join('') + '</div>';
+    return '';
+  }
+  function cardsShell() {
+    const c = App.cards;
+    if (c.done) return cardsSummary();
+    const q = c.items[c.idx];
+    return '<div class="wrap narrow view-enter stack" style="gap:18px">' +
+      '<div class="row" style="justify-content:space-between;gap:12px"><button class="ds-btn ds-btn--ghost ds-btn--sm" id="c-exit" style="padding-left:10px">' + ic('arrow-left', 17) + ' Выйти</button>' +
+      '<span class="ds-chip">' + ic('book-marked', 16) + ' Карточка ' + (c.idx + 1) + ' из ' + c.items.length + '</span></div>' +
+      '<div class="ds-progress"><div class="ds-progress__track"><div class="ds-progress__fill" style="width:' + Math.round(c.idx / c.items.length * 100) + '%"></div></div></div>' +
+      '<div class="ds-card ds-card--lg q-card"><div class="q-head"><span class="q-num">' + (c.idx + 1) + '</span>' +
+      (q.ty === 'text' ? '<span class="ds-badge ds-badge--brand">Свой ответ</span>' : q.ty === 'match' ? '<span class="ds-badge ds-badge--brand">Сопоставление</span>' : '') + '</div>' +
+      '<div class="q-text">' + math(q.t) + '</div>' +
+      (c.revealed ? '<div class="ds-callout ds-callout--success">' + ic('circle-check', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__title">Ответ</div><div class="ds-callout__text">' + cardAnswer(q) + '</div></div></div>' : '') +
+      '</div>' +
+      (c.revealed
+        ? '<div class="test-nav"><button class="ds-btn ds-btn--secondary ds-btn--md grow" id="c-dont">' + ic('rotate-ccw', 18) + ' Пока не знаю</button><button class="ds-btn ds-btn--success ds-btn--md grow" id="c-know">' + ic('check', 18) + ' Знаю</button></div>'
+        : '<button class="ds-btn ds-btn--primary ds-btn--md ds-btn--block" id="c-reveal">' + ic('eye', 18) + ' Показать ответ</button>') +
+      '<div class="ds-callout ds-callout--support">' + ic('lightbulb', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Спокойное повторение без оценки. Отмечай честно — то, что не знаешь, попадёт в «работу над ошибками».</div></div></div>' +
+      '</div>';
+  }
+  function cardsSummary() {
+    const c = App.cards;
+    return '<div class="wrap narrow view-enter stack" style="gap:18px">' +
+      '<div class="center"><h1 style="font-size:var(--text-2xl)">Повторение завершено</h1><p class="muted" style="margin-top:6px">' + esc(c.subject) + ' · ' + c.grade + ' класс</p></div>' +
+      '<div class="ds-card ds-card--sm pop"><div class="metrics"><div class="metric"><div class="metric__v" style="color:var(--success)">' + c.known + '</div><div class="metric__l">Знаю</div></div><div class="metric-div"></div>' +
+      '<div class="metric"><div class="metric__v" style="color:var(--coral-600)">' + c.unknown + '</div><div class="metric__l">Пока нет</div></div><div class="metric-div"></div>' +
+      '<div class="metric"><div class="metric__v">' + c.items.length + '</div><div class="metric__l">Всего</div></div></div></div>' +
+      '<div class="res-actions"><button class="ds-btn ds-btn--primary ds-btn--md" id="c-again">' + ic('rotate-ccw', 18) + ' Ещё карточки</button>' +
+      (c.unknown > 0 ? '<button class="ds-btn ds-btn--success ds-btn--md" id="c-mistakes">' + ic('target', 18) + ' Над ошибками (' + c.unknown + ')</button>' : '') +
+      '<a class="ds-btn ds-btn--secondary ds-btn--md" href="#/">На главную</a></div></div>';
+  }
+  function updateCards() { app.innerHTML = cardsShell(); wireCards(); window.scrollTo(0, 0); }
+  function nextCard() {
+    const c = App.cards; c.revealed = false;
+    if (c.idx >= c.items.length - 1) { c.done = true; if (c.unknownItems.length) window.Store.recordMistakes(c.slug, c.grade, c.unknownItems); }
+    else c.idx++;
+    updateCards();
+  }
+  function wireCards() {
+    const c = App.cards; if (!c) return;
+    const ex = document.getElementById('c-exit'); if (ex) ex.addEventListener('click', function () { App.cards = null; go('#/'); });
+    const rv = document.getElementById('c-reveal'); if (rv) rv.addEventListener('click', function () { c.revealed = true; updateCards(); });
+    const kn = document.getElementById('c-know'); if (kn) kn.addEventListener('click', function () { c.known++; nextCard(); });
+    const dn = document.getElementById('c-dont'); if (dn) dn.addEventListener('click', function () { c.unknown++; c.unknownItems.push(c.items[c.idx]); nextCard(); });
+    const ag = document.getElementById('c-again'); if (ag) ag.addEventListener('click', function () { startCards(c.slug, c.grade); });
+    const ms = document.getElementById('c-mistakes'); if (ms) ms.addEventListener('click', function () { startTest(c.slug, c.grade, 'mistakes'); });
   }
 
   /* ---------- RESULTS ---------- */
