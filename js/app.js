@@ -314,7 +314,8 @@
       '<div class="test-nav" id="navbtns">' + navButtons() + '</div></div>' +
       '<div class="ds-card ds-card--sm q-nav-rail"><div class="muted" style="font-weight:700;font-size:13px;margin-bottom:12px">Вопросы</div>' +
       '<div class="navigator" id="navgrid">' + navigator() + '</div>' +
-      '<div class="muted" style="margin-top:16px;font-size:13px"><b style="color:var(--success-text)">' + answeredCount() + '</b> из ' + s.questions.length + ' отвечено</div></div>' +
+      '<div class="muted" style="margin-top:16px;font-size:13px"><b style="color:var(--success-text)">' + answeredCount() + '</b> из ' + s.questions.length + ' отвечено</div>' +
+      '<div class="muted" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);font-size:12px;line-height:1.6">Клавиши: <b>1–8</b> — ответ · <b>←</b> <b>→</b> — переход · <b>Enter</b> — далее</div></div>' +
       '</div></div>';
     app.innerHTML = html;
     wireTest();
