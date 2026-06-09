@@ -288,9 +288,8 @@
       const ans = Array.isArray(a) ? a : q.L.map(() => null);
       body = '<div class="match-list">' + q.L.map((left, li) =>
         '<div class="match-row"><div class="match-left">' + math(left) + '</div>' +
-        '<div class="ds-select-wrap"><select class="ds-select" data-li="' + li + '"><option value="">— выберите —</option>' +
-        q.R.map((r, ri) => '<option value="' + ri + '"' + (ans[li] === ri ? ' selected' : '') + '>' + esc(latexToPlain(r)) + '</option>').join('') +
-        '</select></div></div>').join('') + '</div>';
+        '<div class="mdd" data-li="' + li + '"><button type="button" class="mdd-btn' + (ans[li] == null ? ' placeholder' : '') + '">' + (ans[li] != null ? math(q.R[ans[li]]) : '— выберите —') + '</button>' +
+        '<div class="mdd-menu" hidden>' + q.R.map((r, ri) => '<button type="button" class="mdd-opt' + (ans[li] === ri ? ' sel' : '') + '" data-ri="' + ri + '">' + math(r) + '</button>').join('') + '</div></div></div>').join('') + '</div>';
     } else {
       const sel = a;
       body = '<div class="answers">' + q.o.map((opt, oi) => optionBtn(math(opt), oi, sel === oi ? 'selected' : 'default', LETTERS[oi])).join('') + '</div>';
@@ -341,6 +340,7 @@
     window.scrollTo(0, sc);
     window.Store.saveActive(s);
   }
+  function closeAllMdd() { document.querySelectorAll('.mdd-menu').forEach(function (m) { m.hidden = true; }); }
   function wireTest() {
     const s = App.session;
     document.getElementById('t-exit').addEventListener('click', exitTest);
@@ -357,9 +357,19 @@
       inp.addEventListener('input', () => { s.answers[s.current] = inp.value; updateAux(); });
     } else if (q.ty === 'match') {
       if (!Array.isArray(s.answers[s.current])) s.answers[s.current] = q.L.map(() => null);
-      document.querySelectorAll('#qregion select[data-li]').forEach(sel => sel.addEventListener('change', () => {
-        const li = +sel.getAttribute('data-li'); s.answers[s.current][li] = sel.value === '' ? null : +sel.value; updateAux();
-      }));
+      document.querySelectorAll('#qregion .mdd').forEach(function (dd) {
+        const li = +dd.getAttribute('data-li');
+        const btn = dd.querySelector('.mdd-btn'), menu = dd.querySelector('.mdd-menu');
+        btn.addEventListener('click', function (e) { e.stopPropagation(); const open = !menu.hidden; closeAllMdd(); menu.hidden = open; });
+        dd.querySelectorAll('.mdd-opt').forEach(function (opt) {
+          opt.addEventListener('click', function (e) {
+            e.stopPropagation(); s.answers[s.current][li] = +opt.getAttribute('data-ri');
+            btn.innerHTML = opt.innerHTML; btn.classList.remove('placeholder');
+            dd.querySelectorAll('.mdd-opt').forEach(o => o.classList.remove('sel')); opt.classList.add('sel');
+            menu.hidden = true; updateAux();
+          });
+        });
+      });
     } else {
       document.querySelectorAll('#qregion .ds-answer').forEach(b => b.addEventListener('click', () => { s.answers[s.current] = +b.getAttribute('data-i'); renderTest(true); }));
     }
@@ -779,6 +789,7 @@
   // patch: studentDash/teacher return String objects; render() reads .toString via innerHTML concat.
   // wire reco + recent + again after mount via global delegation:
   document.addEventListener('click', function (e) {
+    if (e.target.closest && !e.target.closest('.mdd')) closeAllMdd();
     const reco = e.target.closest && e.target.closest('[data-reco]');
     if (reco && App.route && App.route.name === 'cabinet') {
       const items = (App._recoCache || []);
