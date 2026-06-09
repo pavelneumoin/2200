@@ -73,8 +73,10 @@
   function viewHome() {
     const t = App.catalog.totals;
     const hist = window.Store.history();
+    const active = window.Store.getActive();
+    const resume = (active && active.questions && active.questions.length && active.remaining > 0) ? resumeCard(active) : '';
     const back = hist.length ? welcomeBack() : '';
-    const html = '<div class="wrap view-enter stack" style="gap:28px">' + back +
+    const html = '<div class="wrap view-enter stack" style="gap:28px">' + resume + back +
       '<div class="ds-card ds-card--soft welcome">' +
         '<h1>Дорогие ребята<br>и родители!</h1>' +
         '<p class="lead" style="max-width:640px">Это спокойное место, где можно потренироваться и проверить себя. Здесь не ставят оценок в журнал — можно ошибаться сколько угодно.</p>' +
@@ -101,7 +103,10 @@
       '<div class="ds-card statstrip"><div class="stats-row">' + stat('31', 'предмет') + stat('2–11', 'классы') + stat(fmtNum(t.questions), 'задания') + '</div>' +
         '<div class="statstrip__chips"><span class="ds-chip">' + ic('clock', 16) + ' 45 минут</span><span class="ds-chip">' + ic('file-text', 16) + ' 17 вопросов</span><span class="ds-chip">' + ic('graduation-cap', 16) + ' Оценка от «2» до «5»</span></div>' +
       '</div></div>';
-    return { html: html, mount: wireGo };
+    return { html: html, mount: function () { wireGo(); var rb = document.getElementById('resume-btn'); if (rb) rb.addEventListener('click', function () { App.session = window.Store.getActive(); if (App.session) { App.session._confirm = false; go('#/test'); } }); } };
+  }
+  function resumeCard(a) {
+    return '<div class="ds-card ds-card--md" style="display:flex;align-items:center;gap:16px;border:1.5px solid var(--border-brand)"><span class="mode-ic">' + ic('play', 22) + '</span><div class="grow"><div style="font-weight:700;color:var(--text-strong)">Продолжить тренировку</div><div class="muted" style="font-size:var(--text-sm)">' + esc(a.subject) + ' · ' + a.grade + ' класс · вопрос ' + (a.current + 1) + ' из ' + a.questions.length + ' · осталось ' + fmtTime(a.remaining) + '</div></div><button class="ds-btn ds-btn--primary ds-btn--md" id="resume-btn">Продолжить ' + ic('arrow-right', 18) + '</button></div>';
   }
   function welcomeBack() {
     const st = window.Store.stats();
@@ -202,6 +207,7 @@
       const s = App.session; if (!s) return; s.remaining--;
       const el = document.getElementById('js-timer'); if (el) el.textContent = fmtTime(s.remaining);
       const box = document.getElementById('timerbox'); if (box) box.classList.toggle('ds-timer--low', s.remaining <= 300);
+      if (s.remaining % 10 === 0) window.Store.saveActive(s);
       if (s.remaining <= 0) submitTest();
     }, 1000);
     document.getElementById('appbar').style.display = 'none';
@@ -276,6 +282,7 @@
     app.innerHTML = html;
     wireTest();
     window.scrollTo(0, sc);
+    window.Store.saveActive(s);
   }
   function wireTest() {
     const s = App.session;
@@ -307,7 +314,7 @@
     document.querySelectorAll('.ds-progress__count').forEach(e => e.textContent = c + ' отвечено');
   }
   function trySubmit() { if (answeredCount() < App.session.questions.length) { App.session._confirm = true; renderTest(); window.scrollTo(0, 0); } else submitTest(); }
-  function exitTest() { stopTimer(); App.session = null; go('#/'); }
+  function exitTest() { stopTimer(); App.session = null; window.Store.clearActive(); go('#/'); }
   function submitTest() {
     stopTimer();
     const s = App.session; const sc = window.Engine.score(s);
@@ -318,6 +325,7 @@
     s.questions.forEach((q, i) => { if (window.Engine.isCorrect(q, s.answers[i])) rightTexts.push(q.t); else wrong.push(q); });
     if (s.mode === 'mistakes') window.Store.clearMistakesByText(s.slug, s.grade, rightTexts);
     window.Store.recordMistakes(s.slug, s.grade, wrong);
+    window.Store.clearActive();
     App.result = { score: sc, session: s };
     go('#/results');
   }
@@ -445,8 +453,9 @@
     const reco = recommendations(isParent);
     const ach = isParent ? '' : achievements(st);
     const recent = recentList();
-    return wrapMount(kpis + (isParent ? parentNote() : '') + reco + dash + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent);
+    return wrapMount(kpis + (isParent ? parentNote() : '') + reco + dash + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent + (isParent ? '' : resetRow()));
   }
+  function resetRow() { return '<div style="text-align:center;padding-top:4px"><button class="ds-btn ds-btn--ghost ds-btn--sm" data-reset>' + ic('rotate-ccw', 15) + ' Сбросить весь прогресс</button></div>'; }
   function wrapMount(html) { const o = new String(html); return o; }
 
   function kpi(icon, v, l, color) {
@@ -569,6 +578,7 @@
     window.Engine.setCatalog(App.catalog);
     window.addEventListener('hashchange', render);
     render();
+    if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
   }
 
   // patch: studentDash/teacher return String objects; render() reads .toString via innerHTML concat.
@@ -581,7 +591,22 @@
       if (it) { if (it.slug) { App.trainSlug = it.slug; App.trainGrade = it.grade ? String(it.grade) : ''; App.trainMode = it.mode || 'train'; } go('#/train'); }
     }
     const again = e.target.closest && e.target.closest('[data-again]');
-    if (again) { const [sl, g] = again.getAttribute('data-again').split('|'); startTest(sl, +g, 'train'); }
+    if (again) { const a = again.getAttribute('data-again').split('|'); startTest(a[0], +a[1], 'train'); }
+    const rst = e.target.closest && e.target.closest('[data-reset]');
+    if (rst) { if (window.confirm('Сбросить весь прогресс на этом устройстве? Историю, статистику и достижения вернуть будет нельзя.')) { window.Store.reset(); render(); } }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!App.route || App.route.name !== 'test' || !App.session) return;
+    const s = App.session, q = s.questions[s.current];
+    const tag = (e.target.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+      if (e.key === 'Enter') { e.preventDefault(); if (s.current === s.questions.length - 1) trySubmit(); else { s.current++; renderTest(); } }
+      return;
+    }
+    if (e.key === 'ArrowLeft') { if (s.current > 0) { s.current--; renderTest(); } }
+    else if (e.key === 'ArrowRight') { if (s.current < s.questions.length - 1) { s.current++; renderTest(); } }
+    else if (e.key === 'Enter') { if (s.current === s.questions.length - 1) trySubmit(); else { s.current++; renderTest(); } }
+    else if (/^[1-8]$/.test(e.key) && q.ty === 'single') { const i = +e.key - 1; if (i < q.o.length) { s.answers[s.current] = i; renderTest(true); } }
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

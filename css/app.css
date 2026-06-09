@@ -236,6 +236,7 @@ svg.ic { display: inline-block; flex-shrink: 0; vertical-align: middle; }
   .grade-num { font-size: 76px; }
   .stats-row { gap: 22px; }
   .bar-row { grid-template-columns: 104px 1fr 42px; }
+  .test-nav { position: sticky; bottom: 0; z-index: 20; padding: 12px 0 6px; background: linear-gradient(180deg, rgba(237,243,249,0) 0%, var(--surface-page) 42%); }
 }
 .show-mobile { display: none; }
 @media (max-width: 720px) { .show-mobile { display: block; } .hide-mobile { display: none; } }

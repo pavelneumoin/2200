@@ -70,10 +70,15 @@
   }
   function recent(n) { return S.history.slice(-(n || 8)).reverse(); }
 
+  function saveActive(s) { try { localStorage.setItem('t2200_active', JSON.stringify(s)); } catch (e) {} }
+  function getActive() { try { return JSON.parse(localStorage.getItem('t2200_active')); } catch (e) { return null; } }
+  function clearActive() { try { localStorage.removeItem('t2200_active'); } catch (e) {} }
+
   window.Store = {
     get profile() { return S.profile; }, setProfile(p) { S.profile = p; save(); },
     addAttempt, recordMistakes, clearMistakesByText, getMistakes, mistakeTotal, mistakeKeys,
     stats, weakSubjects, recent, streak, history() { return S.history; },
-    reset() { S.history = []; S.mistakes = {}; S.days = []; save(); }
+    saveActive, getActive, clearActive,
+    reset() { S.history = []; S.mistakes = {}; S.days = []; save(); localStorage.removeItem('t2200_active'); }
   };
 })();

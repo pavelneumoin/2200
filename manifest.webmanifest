@@ -1,0 +1,17 @@
+{
+  "name": "Тренажёр ГБОУ Школа № 2200",
+  "short_name": "Тренажёр 2200",
+  "description": "Спокойная подготовка к ликвидации академической задолженности: 31 предмет, 2–11 классы, более 24 700 заданий.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EDF3F9",
+  "theme_color": "#2E63AA",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
