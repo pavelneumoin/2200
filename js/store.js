@@ -70,6 +70,7 @@
   }
   function recent(n) { return S.history.slice(-(n || 8)).reverse(); }
 
+  function todaySolved() { const t = today(); let n = 0; S.history.forEach(h => { if (new Date(h.ts).toISOString().slice(0, 10) === t) n += h.total; }); return n; }
   function saveActive(s) { try { localStorage.setItem('t2200_active', JSON.stringify(s)); } catch (e) {} }
   function getActive() { try { return JSON.parse(localStorage.getItem('t2200_active')); } catch (e) { return null; } }
   function clearActive() { try { localStorage.removeItem('t2200_active'); } catch (e) {} }
@@ -77,7 +78,7 @@
   const __api = {
     get profile() { return S.profile; }, setProfile(p) { S.profile = p; save(); },
     addAttempt, recordMistakes, clearMistakesByText, getMistakes, mistakeTotal, mistakeKeys,
-    stats, weakSubjects, recent, streak, history() { return S.history; },
+    stats, weakSubjects, recent, streak, todaySolved, history() { return S.history; },
     setting(k) { return S.settings[k]; }, setSetting(k, v) { S.settings[k] = v; save(); },
     saveActive, getActive, clearActive,
     reset() { S.history = []; S.mistakes = {}; S.days = []; save(); clearActive(); }

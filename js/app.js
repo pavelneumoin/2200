@@ -140,11 +140,14 @@
   }
   function welcomeBack() {
     const st = window.Store.stats();
-    return '<div class="ds-card ds-card--sm" data-go="#/cabinet" role="button" tabindex="0" style="display:flex;align-items:center;gap:16px;cursor:pointer">' +
-      '<span class="mode-ic" style="background:var(--brand);color:#fff">' + ic('flame', 22) + '</span>' +
+    const solved = window.Store.todaySolved(); const GOAL = 20; const pct = Math.min(100, Math.round(solved / GOAL * 100)); const done = solved >= GOAL;
+    return '<div class="ds-card ds-card--sm stack" style="gap:14px">' +
+      '<div class="row" style="gap:16px"><span class="mode-ic" style="background:var(--brand);color:#fff">' + ic('flame', 22) + '</span>' +
       '<div class="grow"><div style="font-weight:700;color:var(--text-strong)">С возвращением!</div>' +
       '<div class="muted" style="font-size:var(--text-sm)">' + (st.streak ? ('Серия ' + st.streak + ' ' + plural(st.streak, 'день', 'дня', 'дней') + ' · ') : '') + st.attempts + ' ' + plural(st.attempts, 'тренировка', 'тренировки', 'тренировок') + ' · средний балл ' + st.avgPct + '%</div></div>' +
-      '<span class="ds-btn ds-btn--secondary ds-btn--sm">Кабинет ' + ic('arrow-right', 16) + '</span></div>';
+      '<a class="ds-btn ds-btn--secondary ds-btn--sm" href="#/cabinet">Кабинет ' + ic('arrow-right', 16) + '</a></div>' +
+      '<div class="ds-progress' + (done ? ' ds-progress--success' : '') + '"><div class="ds-progress__head"><span class="ds-progress__label">' + (done ? 'Цель дня выполнена!' : 'Цель дня') + '</span><span class="ds-progress__count">' + solved + ' / ' + GOAL + ' ' + plural(solved, 'вопрос', 'вопроса', 'вопросов') + '</span></div><div class="ds-progress__track"><div class="ds-progress__fill" style="width:' + pct + '%"></div></div></div>' +
+      '</div>';
   }
   function wireGo() {
     document.querySelectorAll('[data-go]').forEach(el => {
