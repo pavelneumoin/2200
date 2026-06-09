@@ -32,6 +32,25 @@
     }
     return out;
   }
+  // LaTeX -> читаемый Юникод-текст для мест, где KaTeX недоступен (нативный <select>).
+  const SUPM = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', 'n': 'ⁿ' };
+  const SUBM = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋' };
+  function toSup(p) { let r = ''; for (const c of p) { if (SUPM[c] === undefined) return '^' + p; r += SUPM[c]; } return r; }
+  function toSub(p) { let r = ''; for (const c of p) { if (SUBM[c] === undefined) return p; r += SUBM[c]; } return r; }
+  function latexToPlain(s) {
+    s = String(s == null ? '' : s).replace(/\$/g, '');
+    s = s.replace(/\\d?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
+    s = s.replace(/\\sqrt\{([^{}]*)\}/g, '√($1)').replace(/\\sqrt\s*(\d+|[a-zA-Z])/g, '√$1').replace(/\\sqrt/g, '√');
+    s = s.replace(/\^\{\\circ\}/g, '°').replace(/\\circ/g, '°');
+    s = s.replace(/\^\{([^{}]*)\}/g, (m, p) => toSup(p)).replace(/\^(-?\w)/g, (m, p) => toSup(p));
+    s = s.replace(/_\{([^{}]*)\}/g, (m, p) => toSub(p)).replace(/_(\w)/g, (m, p) => toSub(p));
+    s = s.replace(/\\cdot/g, '·').replace(/\\times/g, '×').replace(/\\div/g, '÷');
+    s = s.replace(/\\le\b/g, '≤').replace(/\\ge\b/g, '≥').replace(/\\ne\b/g, '≠').replace(/\\pm\b/g, '±').replace(/\\infty\b/g, '∞');
+    s = s.replace(/\\operatorname\{([^{}]*)\}/g, '$1').replace(/\\(log|ln|lg|sin|cos|tan|cot|sec|csc)\b/g, '$1');
+    s = s.replace(/\\pi\b/g, 'π').replace(/\\alpha\b/g, 'α').replace(/\\beta\b/g, 'β').replace(/\\gamma\b/g, 'γ').replace(/\\Delta\b/g, 'Δ').replace(/\\varphi\b/g, 'φ').replace(/\\omega\b/g, 'ω');
+    s = s.replace(/\{,\}/g, ',').replace(/\\,/g, ' ').replace(/[{}\\]/g, '');
+    return s.replace(/\s+/g, ' ').trim();
+  }
   function fmtNum(n) { return Number(n).toLocaleString('ru-RU'); }
   function fmtTime(s) { s = Math.max(0, s | 0); const m = Math.floor(s / 60), ss = s % 60; return m + ':' + (ss < 10 ? '0' : '') + ss; }
   function plural(n, a, b, c) { n = Math.abs(n) % 100; const n1 = n % 10; if (n > 10 && n < 20) return c; if (n1 > 1 && n1 < 5) return b; if (n1 === 1) return a; return c; }
@@ -270,7 +289,7 @@
       body = '<div class="match-list">' + q.L.map((left, li) =>
         '<div class="match-row"><div class="match-left">' + math(left) + '</div>' +
         '<div class="ds-select-wrap"><select class="ds-select" data-li="' + li + '"><option value="">— выберите —</option>' +
-        q.R.map((r, ri) => '<option value="' + ri + '"' + (ans[li] === ri ? ' selected' : '') + '>' + esc(r.replace(/\$/g, '')) + '</option>').join('') +
+        q.R.map((r, ri) => '<option value="' + ri + '"' + (ans[li] === ri ? ' selected' : '') + '>' + esc(latexToPlain(r)) + '</option>').join('') +
         '</select></div></div>').join('') + '</div>';
     } else {
       const sel = a;
@@ -493,8 +512,8 @@
       const ans = Array.isArray(a) ? a : [];
       body = '<div class="match-list">' + q.L.map((left, li) => {
         const okRow = ans[li] === q.p[li];
-        const yours = ans[li] != null ? q.R[ans[li]].replace(/\$/g, '') : '—';
-        const right = q.R[q.p[li]].replace(/\$/g, '');
+        const yours = ans[li] != null ? latexToPlain(q.R[ans[li]]) : '—';
+        const right = latexToPlain(q.R[q.p[li]]);
         return '<div class="match-row" style="grid-template-columns:1fr"><div class="match-left" style="border-color:' + (okRow ? 'var(--success-border)' : 'var(--danger-border)') + ';background:' + (okRow ? 'var(--success-subtle)' : 'var(--danger-subtle)') + '">' +
           '<div style="font-weight:700">' + math(left) + '</div><div style="font-size:13px;margin-top:4px;color:var(--text-muted)">' + (okRow ? ic('check', 14) + ' ' + esc(yours) : ic('x', 14) + ' вы: ' + esc(yours) + ' · верно: ' + esc(right)) + '</div></div></div>';
       }).join('') + '</div>';
