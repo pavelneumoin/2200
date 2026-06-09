@@ -45,7 +45,7 @@
   function gColor(g) { return (GRADE[g] || GRADE[2]).c; }
 
   /* ---------- state ---------- */
-  const App = { catalog: null, route: null, session: null, result: null, cards: null, pre: null, trainSlug: '', trainGrade: '', trainMode: 'train', cabRole: 'student', _timer: null, _scroll: 0 };
+  const App = { catalog: null, route: null, session: null, result: null, cards: null, pre: null, trainSlug: '', trainGrade: '', trainMode: 'train', cabRole: 'student', teacherImport: false, teacherClass: 0, _timer: null, _scroll: 0 };
   window.App = App;
 
   /* ---------- nav ---------- */
@@ -652,6 +652,39 @@
 
   /* ---------- TEACHER (demo data) ---------- */
   function teacherDash() {
+    const roster = window.Store.getRoster();
+    if (!roster || !roster.classes || !roster.classes.length) return demoTeacherDash() + teacherImportPanel(false);
+    const classes = roster.classes;
+    let ci = App.teacherClass || 0; if (ci >= classes.length) ci = 0; App.teacherClass = ci;
+    const cls = classes[ci];
+    const withMarks = cls.students.filter(s => s.pct != null);
+    const avg = withMarks.length ? Math.round(withMarks.reduce((a, x) => a + x.pct, 0) / withMarks.length) : null;
+    const atRisk = withMarks.filter(s => s.pct < 50).length;
+    const selector = classes.length > 1 ? '<div class="wrapline">' + classes.map((c, i) => '<button class="gpill" data-tclass="' + i + '"' + (i === ci ? ' style="background:var(--brand-subtle);border-color:transparent;color:var(--brand-subtle-text);font-weight:700"' : '') + '>' + esc(c.name) + ' · ' + c.students.length + '</button>').join('') + '</div>' : '';
+    const kpis = '<div class="kpis">' + kpi('users', cls.students.length, 'учеников') + kpi('layout-dashboard', classes.length, plural(classes.length, 'класс', 'класса', 'классов')) +
+      (avg != null ? kpi('target', avg + '%', 'средний балл', gColor(window.Engine.gradeFor(avg))) + kpi('shield-alert', atRisk, 'нужна помощь', atRisk ? 'var(--coral-600)' : 'var(--green-600)') : kpi('clock', '—', 'оценки не загружены')) + '</div>';
+    const rows = cls.students.slice().sort((a, b) => (a.pct == null ? 1000 : a.pct) - (b.pct == null ? 1000 : b.pct)).map(s =>
+      '<tr><td style="font-weight:600;color:var(--text-strong)">' + esc(s.name) + '</td><td>' + (s.pct != null ? '<span class="dot" style="background:' + gColor(window.Engine.gradeFor(s.pct)) + '"></span> ' + s.pct + '%' : '<span class="muted">—</span>') + '</td><td>' + (s.attempts != null ? s.attempts : '<span class="muted">—</span>') + '</td></tr>').join('');
+    const table = '<div class="ds-card ds-card--sm" style="overflow:auto"><div style="font-weight:700;color:var(--text-strong);margin-bottom:12px">Класс ' + esc(cls.name) + (cls.teacher ? ' · ' + esc(cls.teacher) : '') + ' · по возрастанию результата</div>' +
+      '<table class="roster"><thead><tr><th>Ученик</th><th>Балл</th><th>Тестов</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    return selector + kpis + table + teacherImportPanel(true);
+  }
+  function teacherImportPanel(has) {
+    if (!App.teacherImport) {
+      return '<div class="ds-card ds-card--sm" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">' +
+        '<div class="muted" style="font-size:var(--text-sm)">' + ic('shield-check', 16) + ' Данные класса хранятся только на этом устройстве и никуда не отправляются.</div>' +
+        '<div class="wrapline"><button class="ds-btn ds-btn--primary ds-btn--sm" data-timport>' + ic('users', 16) + ' ' + (has ? 'Обновить список' : 'Импортировать класс') + '</button>' +
+        (has ? '<button class="ds-btn ds-btn--ghost ds-btn--sm" data-tclear>' + ic('rotate-ccw', 15) + ' Очистить</button>' : '') + '</div></div>';
+    }
+    const example = 'Класс; Ученик; Учитель; Балл; Тестов\n8А; Иванов Иван; Иванова М.П.; 72; 5\n8А; Петрова Мария; Иванова М.П.\n9Б; Сидоров Пётр; Смирнов А.А.; 45; 3';
+    return '<div class="ds-card ds-card--md stack" style="gap:12px">' +
+      '<div style="font-weight:700;color:var(--text-strong)">Импорт списка класса</div>' +
+      '<div class="muted" style="font-size:var(--text-sm)">По строке на ученика. Колонки через «;» или табуляцию (можно копировать прямо из Excel). Обязательны первые две — <b>Класс</b> и <b>Ученик</b>; учитель, балл (%) и число тестов — по желанию.</div>' +
+      '<textarea class="ds-input" id="t-import-text" rows="8" style="min-height:170px;line-height:1.5" placeholder="' + esc(example) + '"></textarea>' +
+      '<div class="wrapline"><button class="ds-btn ds-btn--success ds-btn--md" data-timport-load>' + ic('check', 18) + ' Загрузить</button>' +
+      '<button class="ds-btn ds-btn--secondary ds-btn--md" data-timport-cancel>Отмена</button></div></div>';
+  }
+  function demoTeacherDash() {
     const roster = demoRoster();
     const avg = Math.round(roster.reduce((s, r) => s + r.pct, 0) / roster.length);
     const atRisk = roster.filter(r => r.pct < 50).length;
@@ -737,6 +770,13 @@
     if (again) { const a = again.getAttribute('data-again').split('|'); startTest(a[0], +a[1], 'train'); }
     const rst = e.target.closest && e.target.closest('[data-reset]');
     if (rst) { if (window.confirm('Сбросить весь прогресс на этом устройстве? Историю, статистику и достижения вернуть будет нельзя.')) { window.Store.reset(); render(); } }
+    if (App.route && App.route.name === 'cabinet' && e.target.closest) {
+      if (e.target.closest('[data-timport]')) { App.teacherImport = true; render(); return; }
+      if (e.target.closest('[data-timport-cancel]')) { App.teacherImport = false; render(); return; }
+      if (e.target.closest('[data-tclear]')) { if (window.confirm('Очистить список класса с этого устройства?')) { window.Store.clearRoster(); App.teacherClass = 0; render(); } return; }
+      if (e.target.closest('[data-timport-load]')) { const ta = document.getElementById('t-import-text'); const r = window.Engine.parseRoster(ta ? ta.value : ''); if (r.classes.length) { window.Store.setRoster(r); App.teacherImport = false; App.teacherClass = 0; render(); } else { window.alert('Не получилось распознать список. Нужны минимум две колонки: Класс и Ученик (через «;» или табуляцию).'); } return; }
+      const tc = e.target.closest('[data-tclass]'); if (tc) { App.teacherClass = +tc.getAttribute('data-tclass'); render(); return; }
+    }
   });
   document.addEventListener('keydown', function (e) {
     if (!App.route || App.route.name !== 'test' || !App.session) return;

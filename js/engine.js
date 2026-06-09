@@ -73,7 +73,27 @@
     return { correct: exact, total, earned: e, pct, grade: gradeFor(pct), types };
   }
 
-  const __api = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade, normalize };
+  // Parse a pasted class list. Flexible delimiters (tab / ; / , / |).
+  // Columns: Класс; Ученик; Учитель(опц); Балл%(опц); Тестов(опц). Header row optional.
+  function parseRoster(text) {
+    const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    let start = 0;
+    if (lines.length && /класс/i.test(lines[0]) && /ученик|фамил|имя/i.test(lines[0])) start = 1;
+    const num = x => (x !== undefined && x !== '' && !isNaN(parseFloat(x))) ? parseFloat(x) : null;
+    const classes = {};
+    for (let i = start; i < lines.length; i++) {
+      const p = lines[i].split(/\t|;|,|\|/).map(c => c.trim());
+      const cls = p[0] || '', name = p[1] || '';
+      if (!cls || !name) continue;
+      const c = classes[cls] || (classes[cls] = { name: cls, teacher: '', students: [] });
+      if (p[2] && !c.teacher) c.teacher = p[2];
+      const pct = num(p[3]); const att = num(p[4]);
+      c.students.push({ name: name, pct: pct === null ? null : Math.round(pct), attempts: att === null ? null : Math.round(att) });
+    }
+    return { classes: Object.keys(classes).map(k => classes[k]) };
+  }
+
+  const __api = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade, normalize, parseRoster };
   if (typeof window !== 'undefined') window.Engine = __api;
   if (typeof module !== 'undefined' && module.exports) module.exports = __api;
 })();

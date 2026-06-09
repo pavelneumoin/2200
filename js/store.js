@@ -74,6 +74,9 @@
   function saveActive(s) { try { localStorage.setItem('t2200_active', JSON.stringify(s)); } catch (e) {} }
   function getActive() { try { return JSON.parse(localStorage.getItem('t2200_active')); } catch (e) { return null; } }
   function clearActive() { try { localStorage.removeItem('t2200_active'); } catch (e) {} }
+  function getRoster() { try { return JSON.parse(localStorage.getItem('t2200_roster')); } catch (e) { return null; } }
+  function setRoster(r) { try { localStorage.setItem('t2200_roster', JSON.stringify(r)); } catch (e) {} }
+  function clearRoster() { try { localStorage.removeItem('t2200_roster'); } catch (e) {} }
 
   const __api = {
     get profile() { return S.profile; }, setProfile(p) { S.profile = p; save(); },
@@ -81,6 +84,7 @@
     stats, weakSubjects, recent, streak, todaySolved, history() { return S.history; },
     setting(k) { return S.settings[k]; }, setSetting(k, v) { S.settings[k] = v; save(); },
     saveActive, getActive, clearActive,
+    getRoster, setRoster, clearRoster,
     reset() { S.history = []; S.mistakes = {}; S.days = []; save(); clearActive(); }
   };
   if (typeof window !== 'undefined') window.Store = __api;
