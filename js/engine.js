@@ -73,5 +73,7 @@
     return { correct: exact, total, earned: e, pct, grade: gradeFor(pct), types };
   }
 
-  window.Engine = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade };
+  const __api = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade, normalize };
+  if (typeof window !== 'undefined') window.Engine = __api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = __api;
 })();

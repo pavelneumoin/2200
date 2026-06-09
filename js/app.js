@@ -8,11 +8,27 @@
   /* ---------- helpers ---------- */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function ic(name, size, cls) { const p = ICONS[name] || ''; return '<svg class="ic ' + (cls || '') + '" width="' + (size || 20) + '" height="' + (size || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>'; }
+  function looksMath(x) { return /[\\^_{}=<>]/.test(x) || /\d\s*[+\-*/]\s*\d/.test(x); }
   function math(s) {
-    s = String(s == null ? '' : s); const parts = s.split('$'); let out = '';
-    for (let i = 0; i < parts.length; i++) {
-      if (i % 2 === 1 && K) { try { out += K.renderToString(parts[i], { throwOnError: false, displayMode: false }); } catch (e) { out += esc(parts[i]); } }
-      else out += esc(parts[i]);
+    s = String(s == null ? '' : s);
+    if (s.indexOf('$') === -1) return esc(s);
+    var out = '', i = 0;
+    while (i < s.length) {
+      if (s[i] === '$') {
+        var j = s.indexOf('$', i + 1);
+        if (j > i) {
+          var inner = s.slice(i + 1, j);
+          if (K && looksMath(inner)) {
+            try { out += K.renderToString(inner, { throwOnError: false, displayMode: false }); }
+            catch (e) { out += esc('$' + inner + '$'); }
+            i = j + 1; continue;
+          }
+        }
+        out += esc('$'); i++; continue;
+      }
+      var nx = s.indexOf('$', i);
+      if (nx === -1) { out += esc(s.slice(i)); break; }
+      out += esc(s.slice(i, nx)); i = nx;
     }
     return out;
   }

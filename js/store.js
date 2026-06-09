@@ -74,11 +74,13 @@
   function getActive() { try { return JSON.parse(localStorage.getItem('t2200_active')); } catch (e) { return null; } }
   function clearActive() { try { localStorage.removeItem('t2200_active'); } catch (e) {} }
 
-  window.Store = {
+  const __api = {
     get profile() { return S.profile; }, setProfile(p) { S.profile = p; save(); },
     addAttempt, recordMistakes, clearMistakesByText, getMistakes, mistakeTotal, mistakeKeys,
     stats, weakSubjects, recent, streak, history() { return S.history; },
     saveActive, getActive, clearActive,
-    reset() { S.history = []; S.mistakes = {}; S.days = []; save(); localStorage.removeItem('t2200_active'); }
+    reset() { S.history = []; S.mistakes = {}; S.days = []; save(); clearActive(); }
   };
+  if (typeof window !== 'undefined') window.Store = __api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = __api;
 })();
