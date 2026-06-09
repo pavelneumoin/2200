@@ -455,7 +455,7 @@
     const reco = recommendations(isParent);
     const ach = isParent ? '' : achievements(st);
     const recent = recentList();
-    return wrapMount(kpis + (isParent ? parentNote() : '') + reco + dash + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent + (isParent ? '' : resetRow()));
+    return wrapMount(kpis + (isParent ? parentNote() : '') + reco + dash + typeInsight(st) + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent + (isParent ? '' : resetRow()));
   }
   function resetRow() { return '<div style="text-align:center;padding-top:4px"><button class="ds-btn ds-btn--ghost ds-btn--sm" data-reset>' + ic('rotate-ccw', 15) + ' Сбросить весь прогресс</button></div>'; }
   function wrapMount(html) { const o = new String(html); return o; }
@@ -478,6 +478,18 @@
     pts.forEach(p => { if (p.y == null) return; const x = xs(p.x), y = ys(p.y); path += (started ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' '; started = true; dots += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="var(--brand)"/>'; });
     if (!started) return '<div class="muted" style="font-size:13px">Нет активности за период</div>';
     return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><line x1="4" y1="' + ys(0) + '" x2="' + (W - 4) + '" y2="' + ys(0) + '" stroke="var(--border-subtle)"/><path d="' + path + '" fill="none" stroke="var(--brand)" stroke-width="2.5"/>' + dots + '</svg>';
+  }
+  function typeInsight(st) {
+    const names = { single: 'выбор ответа', text: 'короткий ответ', match: 'сопоставление' };
+    const rows = Object.keys(st.byType).map(k => ({ k: k, c: st.byType[k][0], t: st.byType[k][1] })).filter(r => r.t >= 4);
+    if (rows.length < 2) return '';
+    rows.forEach(r => r.pct = Math.round(r.c / r.t * 100));
+    rows.sort((a, b) => a.pct - b.pct);
+    const weak = rows[0], strong = rows[rows.length - 1];
+    if (weak.pct >= strong.pct - 5) return '';
+    const bars = rows.map(r => barRow(names[r.k], r.pct, gColor(window.Engine.gradeFor(r.pct)))).join('');
+    return '<div class="ds-card ds-card--sm stack" style="gap:12px"><div style="font-weight:700;color:var(--text-strong)">По типам заданий</div>' + bars +
+      '<div class="ds-callout ds-callout--support">' + ic('lightbulb', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Лучше всего даётся «' + names[strong.k] + '». Стоит подтянуть «' + names[weak.k] + '» — выбирай темы, где такие задания встречаются чаще.</div></div></div></div>';
   }
   function recommendations(isParent) {
     const items = [];
