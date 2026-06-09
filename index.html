@@ -2,63 +2,37 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2E63AA">
+<meta name="description" content="Тренажёр ГБОУ Школа № 2200 — спокойная подготовка к ликвидации академической задолженности. 31 предмет, 2–11 классы, более 24 700 заданий.">
 <title>Тренажёр · ГБОУ Школа № 2200</title>
-<style>
-  :root{
-    --blue:#2563eb; --green:#059669;
-    --ink:#1f2937; --muted:#6b7280; --card:#ffffff;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    color:var(--ink);
-    background:linear-gradient(160deg,#eef3fb 0%,#e6edf7 60%,#eaf3ee 100%);
-    display:flex;align-items:center;justify-content:center;
-    padding:24px;line-height:1.5;
-  }
-  .card{
-    width:100%;max-width:560px;background:var(--card);
-    border-radius:24px;padding:clamp(28px,6vw,48px);
-    box-shadow:0 18px 50px rgba(30,58,138,.12);
-    text-align:center;
-  }
-  .logo{font-size:clamp(44px,12vw,64px);line-height:1}
-  h1{
-    margin-top:14px;font-size:clamp(26px,7vw,38px);
-    color:var(--blue);font-weight:800;letter-spacing:-.5px;
-  }
-  .school{margin-top:4px;font-size:clamp(17px,4.5vw,21px);font-weight:600;color:var(--ink)}
-  .tag{margin-top:10px;font-size:clamp(14px,3.6vw,16px);color:var(--muted)}
-  .badge{
-    display:inline-block;margin-top:24px;
-    background:#ecfdf5;color:var(--green);
-    border:1px solid #a7f3d0;border-radius:999px;
-    padding:8px 18px;font-weight:600;font-size:15px;
-  }
-  .msg{margin-top:24px;font-size:clamp(15px,4vw,17px);color:#374151}
-  .heart{color:var(--blue)}
-  .foot{margin-top:28px;font-size:13px;color:#9ca3af}
-</style>
+<link rel="stylesheet" href="assets/katex/katex.min.css">
+<link rel="stylesheet" href="css/ds.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <main class="card">
-    <div class="logo">📚</div>
-    <h1>Тренажёр</h1>
-    <div class="school">ГБОУ Школа № 2200</div>
-    <div class="tag">Подготовка к ликвидации академической задолженности</div>
+  <header class="appbar" id="appbar">
+    <a class="brand" href="#/" data-link aria-label="Тренажёр, на главную">
+      <span class="brand__badge">2200</span>
+      <span class="brand__words">
+        <span class="brand__name">Тренажёр</span>
+        <span class="brand__sub">ГБОУ Школа № 2200</span>
+      </span>
+    </a>
+    <nav class="appnav" id="appnav"></nav>
+  </header>
 
-    <span class="badge">🛠 Новая версия в разработке</span>
+  <main id="app" class="app-main"><!-- views render here --></main>
 
-    <p class="msg">
-      Мы готовим обновлённый тренажёр — удобный и на компьютере, и на телефоне.
-      Совсем скоро здесь можно будет спокойно тренироваться: без имени,
-      без стресса, столько раз, сколько нужно. У вас всё получится! <span class="heart">💙</span>
-    </p>
+  <footer class="appfoot" id="appfoot">
+    <span>Тренажёр ГБОУ Школа № 2200 · внутренний ресурс для учеников</span>
+    <span class="appfoot__note">Результаты хранятся только на этом устройстве и никуда не отправляются.</span>
+  </footer>
 
-    <div class="foot">Сайт обновляется автоматически</div>
-  </main>
+  <script defer src="assets/katex/katex.min.js"></script>
+  <script defer src="js/icons.js"></script>
+  <script defer src="js/store.js"></script>
+  <script defer src="js/engine.js"></script>
+  <script defer src="js/app.js"></script>
 </body>
 </html>
