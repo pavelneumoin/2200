@@ -240,3 +240,7 @@ svg.ic { display: inline-block; flex-shrink: 0; vertical-align: middle; }
 }
 .show-mobile { display: none; }
 @media (max-width: 720px) { .show-mobile { display: block; } .hide-mobile { display: none; } }
+
+/* ---------- accessibility prefs ---------- */
+html.pref-bigtext { font-size: 18px; }
+html.pref-nomotion *, html.pref-nomotion *::before, html.pref-nomotion *::after { animation: none !important; transition: none !important; }

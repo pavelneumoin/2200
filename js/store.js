@@ -78,6 +78,7 @@
     get profile() { return S.profile; }, setProfile(p) { S.profile = p; save(); },
     addAttempt, recordMistakes, clearMistakesByText, getMistakes, mistakeTotal, mistakeKeys,
     stats, weakSubjects, recent, streak, history() { return S.history; },
+    setting(k) { return S.settings[k]; }, setSetting(k, v) { S.settings[k] = v; save(); },
     saveActive, getActive, clearActive,
     reset() { S.history = []; S.mistakes = {}; S.days = []; save(); clearActive(); }
   };

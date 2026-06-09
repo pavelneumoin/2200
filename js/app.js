@@ -53,7 +53,13 @@
     const items = [['', 'Главная', 'house'], ['scope', 'Объём', 'library'], ['cabinet', 'Кабинет', 'layout-dashboard']];
     appnav.innerHTML = items.map(([key, label, icon]) =>
       '<a class="navlink" href="#/' + key + '" ' + (active === (key || 'home') ? 'aria-current="page"' : '') + '>' + ic(icon, 18) + '<span class="navlink__txt">' + label + '</span></a>'
-    ).join('');
+    ).join('') + '<a class="navlink" href="#/settings" aria-label="Настройки" ' + (active === 'settings' ? 'aria-current="page"' : '') + ' style="padding:9px 11px">' + ic('settings', 18) + '</a>';
+  }
+
+  function applySettings() {
+    const el = document.documentElement;
+    el.classList.toggle('pref-bigtext', !!window.Store.setting('bigText'));
+    el.classList.toggle('pref-nomotion', !!window.Store.setting('reduceMotion'));
   }
 
   /* ---------- router ---------- */
@@ -73,6 +79,7 @@
     else if (r.name === 'results') { if (!App.result) { go('#/'); return; } v = viewResults(); }
     else if (r.name === 'review') { if (!App.result) { go('#/'); return; } v = viewReview(); }
     else if (r.name === 'cabinet') v = viewCabinet(r.parts[0] || App.cabRole);
+    else if (r.name === 'settings') v = viewSettings();
     else v = viewHome();
     stopTimer();
     appbar.style.display = ''; foot.style.display = '';
@@ -674,12 +681,40 @@
   /* ---------- mount helpers for cabinet dynamic bits ---------- */
   function cabinetMount() { }
 
+  /* ---------- SETTINGS ---------- */
+  function viewSettings() {
+    const big = !!window.Store.setting('bigText'), nm = !!window.Store.setting('reduceMotion');
+    const toggle = function (key, icon, title, desc, on) {
+      return '<button class="mode-tile" data-set="' + key + '" aria-pressed="' + on + '" style="width:100%">' +
+        '<span class="mode-tile__ic">' + ic(icon, 20) + '</span><div class="grow"><div class="mode-tile__t">' + title + '</div><div class="mode-tile__d">' + desc + '</div></div>' +
+        '<span class="ds-badge ds-badge--' + (on ? 'success' : 'neutral') + '" style="align-self:center">' + (on ? 'Вкл' : 'Выкл') + '</span></button>';
+    };
+    const html = '<div class="wrap narrow view-enter stack" style="gap:18px">' +
+      '<a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/" style="align-self:flex-start">' + ic('arrow-left', 17) + ' На главную</a>' +
+      '<h1 style="font-size:var(--text-2xl)">Настройки</h1>' +
+      '<div class="ds-card ds-card--sm stack" style="gap:12px">' +
+      toggle('bigText', 'book-open', 'Крупный шрифт', 'Удобнее для младших классов и чтения с телефона.', big) +
+      toggle('reduceMotion', 'activity', 'Меньше анимаций', 'Спокойнее, без плавных переходов.', nm) +
+      '</div>' +
+      '<div class="ds-card ds-card--sm stack" style="gap:10px"><div style="font-weight:700;color:var(--text-strong)">Данные</div>' +
+      '<div class="muted" style="font-size:var(--text-sm)">Прогресс хранится только на этом устройстве и никуда не отправляется.</div>' +
+      '<div><button class="ds-btn ds-btn--ghost ds-btn--sm" data-reset>' + ic('rotate-ccw', 15) + ' Сбросить весь прогресс</button></div></div>' +
+      '<div class="ds-callout ds-callout--support">' + ic('heart-handshake', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Тренажёр ГБОУ Школа № 2200. Тренируйтесь спокойно — у вас всё получится.</div></div></div>' +
+      '</div>';
+    return {
+      html: html, mount: function () {
+        document.querySelectorAll('[data-set]').forEach(function (b) { b.addEventListener('click', function () { const k = b.getAttribute('data-set'); window.Store.setSetting(k, !window.Store.setting(k)); applySettings(); render(); }); });
+      }
+    };
+  }
+
   /* ---------- init ---------- */
   async function init() {
     try {
       const r = await fetch('data/index.json'); App.catalog = await r.json();
     } catch (e) { app.innerHTML = '<div class="wrap"><div class="empty">Не удалось загрузить каталог заданий.</div></div>'; return; }
     window.Engine.setCatalog(App.catalog);
+    applySettings();
     window.addEventListener('hashchange', render);
     render();
     if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
