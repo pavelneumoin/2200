@@ -332,7 +332,7 @@
 
   /* ---------- RESULTS ---------- */
   function viewResults() {
-    const { score: sc, session: s } = App.result; const g = GRADE[sc.grade];
+    const { score: sc, session: s } = App.result; const g = GRADE[sc.grade]; const wrong = sc.total - sc.correct;
     const html = '<div class="wrap narrow view-enter stack" style="gap:22px">' +
       '<div class="center"><h1 style="font-size:var(--text-2xl)">Результаты теста</h1><p class="muted" style="margin-top:6px;font-size:var(--text-sm)">' + esc(s.subject) + ' · ' + s.grade + ' класс</p></div>' +
       '<div class="ds-card ds-card--md grade-card pop" style="background:' + g.soft + ';border:1px solid ' + g.bd + '">' +
@@ -346,15 +346,17 @@
         '<div class="metric"><div class="metric__v" style="color:' + g.c + '">' + sc.pct + '%</div><div class="metric__l">Процент</div></div>' +
       '</div></div>' +
       '<div class="res-actions"><button class="ds-btn ds-btn--primary ds-btn--md" id="r-new">' + ic('rotate-ccw', 18) + ' Новый вариант</button>' +
-      '<button class="ds-btn ds-btn--secondary ds-btn--md" id="r-change">Сменить класс</button>' +
-      '<button class="ds-btn ds-btn--secondary ds-btn--md" id="r-review">' + ic('list-checks', 18) + ' Разбор ответов</button></div>' +
+      (wrong > 0 ? '<button class="ds-btn ds-btn--success ds-btn--md" id="r-mistakes">' + ic('target', 18) + ' Над ошибками (' + wrong + ')</button>' : '') +
+      '<button class="ds-btn ds-btn--secondary ds-btn--md" id="r-review">' + ic('list-checks', 18) + ' Разбор ответов</button>' +
+      '<button class="ds-btn ds-btn--secondary ds-btn--md" id="r-change">Сменить класс</button></div>' +
       '<div class="ds-callout ds-callout--info">' + ic('info', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Результат сохранён только на этом устройстве. Можно перепройти с новым случайным вариантом сколько угодно раз — а ещё посмотреть прогресс в кабинете.</div></div></div>' +
       '</div>';
     return {
       html: html, mount: function () {
         document.getElementById('r-new').addEventListener('click', () => startTest(s.slug, s.grade, s.mode));
-        document.getElementById('r-change').addEventListener('click', () => { App.trainSlug = s.slug; App.trainGrade = ''; go('#/train'); });
+        document.getElementById('r-change').addEventListener('click', () => { App.trainSlug = s.slug; App.trainGrade = ''; App.trainMode = 'train'; go('#/train'); });
         document.getElementById('r-review').addEventListener('click', () => go('#/review'));
+        var rm = document.getElementById('r-mistakes'); if (rm) rm.addEventListener('click', () => startTest(s.slug, s.grade, 'mistakes'));
       }
     };
   }
