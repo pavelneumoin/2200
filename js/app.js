@@ -116,11 +116,17 @@
           '<span class="ds-btn ds-btn--secondary ds-btn--md ds-btn--block" aria-disabled="true">Скоро</span>' +
         '</div>' +
       '</div></div>' +
-      '<a class="ds-btn ds-btn--secondary ds-btn--md" href="#/scope" style="align-self:flex-start">' + ic('bar-chart-3', 18) + ' Объём подготовки по предметам и классам</a>' +
+      '<div class="wrapline"><a class="ds-btn ds-btn--secondary ds-btn--md" href="#/scope">' + ic('bar-chart-3', 18) + ' Объём подготовки</a>' +
+      '<button class="ds-btn ds-btn--ghost ds-btn--md" id="btn-random">' + ic('shuffle', 18) + ' Случайная тренировка</button></div>' +
       '<div class="ds-card statstrip"><div class="stats-row">' + stat('31', 'предмет') + stat('2–11', 'классы') + stat(fmtNum(t.questions), 'задания') + '</div>' +
         '<div class="statstrip__chips"><span class="ds-chip">' + ic('clock', 16) + ' 45 минут</span><span class="ds-chip">' + ic('file-text', 16) + ' 17 вопросов</span><span class="ds-chip">' + ic('graduation-cap', 16) + ' Оценка от «2» до «5»</span></div>' +
       '</div></div>';
-    return { html: html, mount: function () { wireGo(); var rb = document.getElementById('resume-btn'); if (rb) rb.addEventListener('click', function () { App.session = window.Store.getActive(); if (App.session) { App.session._confirm = false; go('#/test'); } }); } };
+    return { html: html, mount: function () { wireGo(); var rb = document.getElementById('resume-btn'); if (rb) rb.addEventListener('click', function () { App.session = window.Store.getActive(); if (App.session) { App.session._confirm = false; go('#/test'); } }); var rnd = document.getElementById('btn-random'); if (rnd) rnd.addEventListener('click', function () { var p = pickRandom(); startTest(p.slug, p.grade, 'train'); }); } };
+  }
+  function pickRandom() {
+    const subs = App.catalog.subjects; const s = subs[Math.floor(Math.random() * subs.length)];
+    const g = s.grades[Math.floor(Math.random() * s.grades.length)];
+    return { slug: s.slug, grade: g.g };
   }
   function resumeCard(a) {
     return '<div class="ds-card ds-card--md" style="display:flex;align-items:center;gap:16px;border:1.5px solid var(--border-brand)"><span class="mode-ic">' + ic('play', 22) + '</span><div class="grow"><div style="font-weight:700;color:var(--text-strong)">Продолжить тренировку</div><div class="muted" style="font-size:var(--text-sm)">' + esc(a.subject) + ' · ' + a.grade + ' класс · вопрос ' + (a.current + 1) + ' из ' + a.questions.length + ' · осталось ' + fmtTime(a.remaining) + '</div></div><button class="ds-btn ds-btn--primary ds-btn--md" id="resume-btn">Продолжить ' + ic('arrow-right', 18) + '</button></div>';
@@ -143,11 +149,14 @@
   /* ---------- SCOPE ---------- */
   function viewScope() {
     const subs = App.catalog.subjects, t = App.catalog.totals;
-    const cards = subs.map(s =>
-      '<div class="ds-card ds-card--sm scope-card"><div class="scope-card__head"><span class="scope-ic">' + ic(s.icon, 22) + '</span>' +
-      '<div class="grow"><div class="scope-card__name">' + esc(s.label) + '</div><div class="scope-card__total">' + fmtNum(s.total) + ' ' + plural(s.total, 'задание', 'задания', 'заданий') + ' · ' + s.grades.length + ' ' + plural(s.grades.length, 'класс', 'класса', 'классов') + '</div></div></div>' +
-      '<div class="gpills">' + s.grades.map(g => '<button class="gpill" data-pre data-slug="' + s.slug + '" data-grade="' + g.g + '"><b>' + g.g + '</b> кл · ' + fmtNum(g.n) + '</button>').join('') + '</div></div>'
-    ).join('');
+    const st = window.Store.stats();
+    const cards = subs.map(function (s) {
+      const b = st.bySubject[s.slug];
+      const badge = b ? '<span class="ds-badge ds-badge--' + (b.pct >= 70 ? 'success' : b.pct >= 45 ? 'warning' : 'danger') + '" title="Твой средний результат">' + b.pct + '%</span>' : '';
+      return '<div class="ds-card ds-card--sm scope-card"><div class="scope-card__head"><span class="scope-ic">' + ic(s.icon, 22) + '</span>' +
+        '<div class="grow"><div class="scope-card__name">' + esc(s.label) + '</div><div class="scope-card__total">' + fmtNum(s.total) + ' ' + plural(s.total, 'задание', 'задания', 'заданий') + ' · ' + s.grades.length + ' ' + plural(s.grades.length, 'класс', 'класса', 'классов') + '</div></div>' + badge + '</div>' +
+        '<div class="gpills">' + s.grades.map(function (g) { return '<button class="gpill" data-pre data-slug="' + s.slug + '" data-grade="' + g.g + '"><b>' + g.g + '</b> кл · ' + fmtNum(g.n) + '</button>'; }).join('') + '</div></div>';
+    }).join('');
     const html = '<div class="wrap view-enter stack" style="gap:22px">' +
       '<a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/" style="align-self:flex-start">' + ic('arrow-left', 17) + ' На главную</a>' +
       '<div><h1 style="font-size:var(--text-2xl)">Объём подготовки</h1><p class="muted" style="margin-top:6px">Сколько уникальных заданий доступно по каждому предмету и классу. Нажмите на класс, чтобы начать тренировку.</p></div>' +
