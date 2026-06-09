@@ -810,6 +810,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (!App.route || App.route.name !== 'test' || !App.session) return;
+    if (e.key === 'Escape') { closeAllMdd(); return; }
     const s = App.session, q = s.questions[s.current];
     const tag = (e.target.tagName || '').toUpperCase();
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
