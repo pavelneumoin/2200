@@ -93,7 +93,42 @@
     return { classes: Object.keys(classes).map(k => classes[k]) };
   }
 
-  const __api = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade, normalize, parseRoster };
+  // --- Коды входа для учеников (выдаёт учитель). Без сервера: имя+класс
+  // зашиты в самом коде + контрольная сумма от опечаток. ---
+  function _djb2(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h; }
+  function _b64encode(str) {
+    if (typeof btoa === 'function') return btoa(unescape(encodeURIComponent(str)));
+    return Buffer.from(str, 'utf8').toString('base64');
+  }
+  function _b64decode(b) {
+    if (typeof atob === 'function') return decodeURIComponent(escape(atob(b)));
+    return Buffer.from(b, 'base64').toString('utf8');
+  }
+  function makeStudentCode(name, cls) {
+    const payload = String(name).trim().replace(/\s+/g, ' ') + '|' + String(cls).trim();
+    const b = _b64encode(payload).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const chk = (_djb2(payload) % 1296).toString(36).padStart(2, '0').toUpperCase();
+    return 'T22-' + b + '-' + chk;
+  }
+  function parseStudentCode(code) {
+    try {
+      code = String(code || '').trim();
+      const m = code.match(/^T22-(.+)-([0-9A-Za-z]{2})$/);
+      if (!m) return null;
+      let b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (b.length % 4) b += '=';
+      const payload = _b64decode(b);
+      const chk = (_djb2(payload) % 1296).toString(36).padStart(2, '0').toUpperCase();
+      if (chk !== m[2].toUpperCase()) return null;
+      const i = payload.lastIndexOf('|');
+      if (i < 1) return null;
+      const name = payload.slice(0, i).trim(), cls = payload.slice(i + 1).trim();
+      if (!name || !cls) return null;
+      return { name: name, cls: cls };
+    } catch (e) { return null; }
+  }
+
+  const __api = { setCatalog, subjBySlug, buildSession, isCorrect, earned, checkText, score, gradeFor, answered, loadGrade, normalize, parseRoster, makeStudentCode, parseStudentCode };
   if (typeof window !== 'undefined') window.Engine = __api;
   if (typeof module !== 'undefined' && module.exports) module.exports = __api;
 })();

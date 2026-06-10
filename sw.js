@@ -1,9 +1,9 @@
 /* Service worker — offline support for «Тренажёр 2200». */
-const CACHE = 't2200-v2';
+const CACHE = 't2200-v3';
 const CORE = [
   './', 'index.html', 'css/ds.css', 'css/app.css',
   'js/icons.js', 'js/store.js', 'js/engine.js', 'js/app.js',
-  'data/index.json', 'manifest.webmanifest',
+  'data/index.json', 'manifest.webmanifest', 'assets/qrcode.js',
   'assets/katex/katex.min.css', 'assets/katex/katex.min.js',
   'assets/icons/icon-192.png', 'assets/icons/icon-512.png'
 ];

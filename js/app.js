@@ -69,7 +69,7 @@
 
   /* ---------- nav ---------- */
   function renderNav(active) {
-    const items = [['', 'Главная', 'house'], ['scope', 'Объём', 'library'], ['cabinet', 'Кабинет', 'layout-dashboard']];
+    const items = [['', 'Главная', 'house'], ['train', 'Тренировка', 'graduation-cap'], ['cabinet', 'Кабинет', 'layout-dashboard']];
     appnav.innerHTML = items.map(([key, label, icon]) =>
       '<a class="navlink" href="#/' + key + '" ' + (active === (key || 'home') ? 'aria-current="page"' : '') + '>' + ic(icon, 18) + '<span class="navlink__txt">' + label + '</span></a>'
     ).join('') + '<a class="navlink" href="#/settings" aria-label="Настройки" ' + (active === 'settings' ? 'aria-current="page"' : '') + ' style="padding:9px 11px">' + ic('settings', 18) + '</a>';
@@ -82,7 +82,13 @@
   }
 
   /* ---------- router ---------- */
-  function parseHash() { const h = location.hash.replace(/^#\/?/, ''); const parts = h.split('/'); return { name: parts[0] || 'home', parts: parts.slice(1) }; }
+  function parseHash() {
+    let h = location.hash.replace(/^#\/?/, ''), query = '';
+    const qi = h.indexOf('?'); if (qi > -1) { query = h.slice(qi + 1); h = h.slice(0, qi); }
+    const parts = h.split('/');
+    let q = null; try { q = new URLSearchParams(query); } catch (e) { q = null; }
+    return { name: parts[0] || 'home', parts: parts.slice(1), query: q };
+  }
   function go(hash) { location.hash = hash; }
   window.__go = go;
 
@@ -99,6 +105,14 @@
     else if (r.name === 'review') { if (!App.result) { go('#/'); return; } v = viewReview(); }
     else if (r.name === 'cabinet') v = viewCabinet(r.parts[0] || App.cabRole);
     else if (r.name === 'settings') v = viewSettings();
+    else if (r.name === 'login') {
+      const c = r.query && r.query.get('c');
+      if (c) {
+        const p = window.Engine.parseStudentCode(c);
+        if (p) { window.Store.setProfile({ name: p.name, cls: p.cls, code: window.Engine.makeStudentCode(p.name, p.cls) }); go('#/'); return; }
+      }
+      v = viewLogin(!!c);
+    }
     else v = viewHome();
     stopTimer();
     appbar.style.display = ''; foot.style.display = '';
@@ -113,41 +127,64 @@
   function stat(v, l) { return '<div class="stat"><div class="stat__v">' + v + '</div><div class="stat__l">' + esc(l) + '</div></div>'; }
 
   /* ---------- HOME ---------- */
+  function firstName(p) { if (!p || !p.name) return null; const w = String(p.name).trim().split(/\s+/); return w[1] || w[0]; }
   function viewHome() {
     const t = App.catalog.totals;
-    const hist = window.Store.history();
+    const prof = window.Store.profile;
+    const fname = firstName(prof);
+    const hist = window.Store.myHistory();
     const active = window.Store.getActive();
     const resume = (active && active.questions && active.questions.length && active.remaining > 0) ? resumeCard(active) : '';
-    const back = hist.length ? welcomeBack() : '';
-    const html = '<div class="wrap view-enter stack" style="gap:28px">' + resume + back +
-      '<div class="ds-card ds-card--soft welcome">' +
-        '<h1>Дорогие ребята<br>и родители!</h1>' +
-        '<p class="lead" style="max-width:640px">Это спокойное место, где можно потренироваться и проверить себя. Здесь не ставят оценок в журнал — можно ошибаться сколько угодно.</p>' +
-        '<div class="bullets">' +
+    const last = hist.length ? hist[hist.length - 1] : null;
+    const st = hist.length ? window.Store.stats() : null;
+    const GOAL = 20, solved = hist.length ? window.Store.todaySolved() : 0;
+    const goalPct = Math.min(100, Math.round(solved / GOAL * 100)), goalDone = solved >= GOAL;
+    const heroTitle = hist.length
+      ? 'С возвращением' + (fname ? ', ' + esc(fname) : '') + '!'
+      : 'Привет' + (fname ? ', ' + esc(fname) : '') + '! Давай потренируемся';
+    const heroSub = hist.length
+      ? ((st.streak > 1 ? 'Серия ' + st.streak + ' ' + plural(st.streak, 'день', 'дня', 'дней') + ' подряд — здорово! ' : '') + 'Понемногу каждый день — и к августу всё закрепится.')
+      : 'Выбери предмет и реши свой первый вариант. Оценок в журнал тут не ставят — ошибаться можно сколько угодно.';
+    const heroCta = resume
+      ? '<a class="ds-btn ds-btn--secondary ds-btn--lg" href="#/train">' + ic('graduation-cap', 19) + ' Начать новую тренировку</a>'
+      : last
+        ? '<button class="ds-btn ds-btn--primary ds-btn--lg" id="hero-quick">' + ic('play', 20) + ' Ещё вариант: ' + esc(last.subject) + ' · ' + last.grade + ' класс</button>' +
+          '<a class="ds-btn ds-btn--secondary ds-btn--lg" href="#/train">Другой предмет</a>' +
+          '<button class="ds-btn ds-btn--ghost ds-btn--lg" id="btn-random" aria-label="Случайный предмет" title="Случайный предмет">' + ic('shuffle', 19) + '</button>'
+        : '<a class="ds-btn ds-btn--primary ds-btn--lg" href="#/train">' + ic('graduation-cap', 20) + ' Начать тренировку</a>' +
+          '<button class="ds-btn ds-btn--ghost ds-btn--lg" id="btn-random">' + ic('shuffle', 18) + ' Случайный предмет</button>';
+    const heroGoal = hist.length
+      ? '<div class="ds-progress' + (goalDone ? ' ds-progress--success' : '') + '" style="max-width:430px"><div class="ds-progress__head"><span class="ds-progress__label">' + (goalDone ? 'Цель дня выполнена!' : 'Цель дня') + '</span><span class="ds-progress__count">' + solved + ' / ' + GOAL + '</span></div><div class="ds-progress__track"><div class="ds-progress__fill" style="width:' + goalPct + '%"></div></div></div>'
+      : '';
+    const heroCodeLink = (!prof) ? '<div style="margin-top:4px"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/login">' + ic('badge-check', 15) + ' У меня есть код от учителя</a></div>' : '';
+    const hero = '<div class="ds-card ds-card--lg hero"><h1>' + heroTitle + '</h1><p class="lead">' + heroSub + '</p><div class="hero-cta">' + heroCta + '</div>' + heroGoal + heroCodeLink + '</div>';
+    const html = '<div class="wrap view-enter stack" style="gap:24px">' + resume + hero +
+      '<div><h2 class="sec-title">Как будем заниматься?</h2><div class="quad">' +
+        homeMode('train', 'graduation-cap', 'Тренировка', '17 вопросов · 45 минут · узнаешь свой результат') +
+        homeMode('blitz', 'zap', 'Блиц', 'Быстрая разминка: 12 вопросов с вариантами') +
+        homeMode('cards', 'book-marked', 'Карточки', 'Листай и вспоминай — совсем без оценок') +
+        '<div class="mode-tile mode-tile--locked" aria-disabled="true"><span class="mode-tile__ic">' + ic('clipboard-list', 20) + '</span><div><div class="mode-tile__t">Контрольный тест <span class="ds-badge ds-badge--locked">' + ic('lock', 12) + ' скоро</span></div><div class="mode-tile__d">Откроется ближе к августу — по этим же вопросам.</div></div></div>' +
+      '</div></div>' +
+      '<details class="letter"' + (hist.length ? '' : ' open') + '><summary>' + ic('heart-handshake', 18) + ' Письмо ребятам и родителям</summary><div class="letter-body"><div class="bullets">' +
           bullet('library', '24 700 заданий, 31 предмет', 'По всем предметам и классам со 2 по 11 — выбирайте, что нужно повторить.') +
           bullet('shield-check', 'Тренируйтесь сколько нужно', 'Результаты хранятся только на этом устройстве и никуда не отправляются.') +
           bullet('calendar-days', 'Очная ликвидация в августе', 'Пройдёт по этим же вопросам — поэтому тренировка действительно поможет.') +
           bullet('heart-handshake', 'Мы на вашей стороне', 'Спокойно, по-доброму и без стресса. У тебя всё получится.') +
-        '</div>' +
-      '</div>' +
-      '<div><h2 class="sec-title">Выберите режим работы</h2><div class="modes">' +
-        '<div class="ds-card ds-card--sm ds-card--interactive mode-card" data-go="#/train" tabindex="0" role="button">' +
-          '<div class="mode-card__head"><span class="mode-ic">' + ic('graduation-cap', 24) + '</span><span class="ds-badge ds-badge--success">' + ic('check', 13) + 'Доступно</span></div>' +
-          '<div><div class="mode-card__title">Тренировка</div><div class="mode-card__desc">Тренировка и самопроверка знаний по любому предмету и классу.</div></div>' +
-          '<span class="ds-btn ds-btn--primary ds-btn--md ds-btn--block">Начать тренировку ' + ic('arrow-right', 18) + '</span>' +
-        '</div>' +
-        '<div class="ds-card mode-card mode-card--locked">' +
-          '<div class="mode-card__head"><span class="mode-ic">' + ic('clipboard-list', 24) + '</span><span class="ds-badge ds-badge--locked">' + ic('lock', 13) + 'Скоро будет доступно</span></div>' +
-          '<div><div class="mode-card__title">Контрольный тест</div><div class="mode-card__desc">Итоговый контрольный вариант. Откроется ближе к августу.</div></div>' +
-          '<span class="ds-btn ds-btn--secondary ds-btn--md ds-btn--block" aria-disabled="true">Скоро</span>' +
-        '</div>' +
-      '</div></div>' +
-      '<div class="wrapline"><a class="ds-btn ds-btn--secondary ds-btn--md" href="#/scope">' + ic('bar-chart-3', 18) + ' Объём подготовки</a>' +
-      '<button class="ds-btn ds-btn--ghost ds-btn--md" id="btn-random">' + ic('shuffle', 18) + ' Случайная тренировка</button></div>' +
+        '</div></div></details>' +
       '<div class="ds-card statstrip"><div class="stats-row">' + stat('31', 'предмет') + stat('2–11', 'классы') + stat(fmtNum(t.questions), 'задания') + '</div>' +
-        '<div class="statstrip__chips"><span class="ds-chip">' + ic('clock', 16) + ' 45 минут</span><span class="ds-chip">' + ic('file-text', 16) + ' 17 вопросов</span><span class="ds-chip">' + ic('graduation-cap', 16) + ' Оценка от «2» до «5»</span></div>' +
+        '<div class="statstrip__chips"><span class="ds-chip">' + ic('clock', 16) + ' 45 минут</span><span class="ds-chip">' + ic('file-text', 16) + ' 17 вопросов</span><span class="ds-chip">' + ic('shield-check', 16) + ' Результат — только для тебя</span></div>' +
+        '<div class="center" style="margin-top:16px"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/scope">' + ic('library', 16) + ' Объём подготовки по предметам и классам</a></div>' +
       '</div></div>';
-    return { html: html, mount: function () { wireGo(); var rb = document.getElementById('resume-btn'); if (rb) rb.addEventListener('click', function () { App.session = window.Store.getActive(); if (App.session) { App.session._confirm = false; go('#/test'); } }); var rnd = document.getElementById('btn-random'); if (rnd) rnd.addEventListener('click', function () { var p = pickRandom(); startTest(p.slug, p.grade, 'train'); }); } };
+    return { html: html, mount: function () {
+      wireGo();
+      var rb = document.getElementById('resume-btn'); if (rb) rb.addEventListener('click', function () { App.session = window.Store.getActive(); if (App.session) { App.session._confirm = false; go('#/test'); } });
+      var rnd = document.getElementById('btn-random'); if (rnd) rnd.addEventListener('click', function () { var p = pickRandom(); startTest(p.slug, p.grade, 'train'); });
+      var hq = document.getElementById('hero-quick'); if (hq) hq.addEventListener('click', function () { var m = (!last || !last.mode || last.mode === 'mistakes') ? 'train' : last.mode; startTest(last.slug, last.grade, m); });
+      document.querySelectorAll('[data-homemode]').forEach(function (b) { b.addEventListener('click', function () { App.trainMode = b.getAttribute('data-homemode'); go('#/train'); }); });
+    } };
+  }
+  function homeMode(key, icon, title, desc) {
+    return '<button class="mode-tile" data-homemode="' + key + '"><span class="mode-tile__ic">' + ic(icon, 20) + '</span><div><div class="mode-tile__t">' + esc(title) + '</div><div class="mode-tile__d">' + esc(desc) + '</div></div></button>';
   }
   function pickRandom() {
     const subs = App.catalog.subjects; const s = subs[Math.floor(Math.random() * subs.length)];
@@ -156,17 +193,6 @@
   }
   function resumeCard(a) {
     return '<div class="ds-card ds-card--md" style="display:flex;align-items:center;gap:16px;border:1.5px solid var(--border-brand)"><span class="mode-ic">' + ic('play', 22) + '</span><div class="grow"><div style="font-weight:700;color:var(--text-strong)">Продолжить тренировку</div><div class="muted" style="font-size:var(--text-sm)">' + esc(a.subject) + ' · ' + a.grade + ' класс · вопрос ' + (a.current + 1) + ' из ' + a.questions.length + ' · осталось ' + fmtTime(a.remaining) + '</div></div><button class="ds-btn ds-btn--primary ds-btn--md" id="resume-btn">Продолжить ' + ic('arrow-right', 18) + '</button></div>';
-  }
-  function welcomeBack() {
-    const st = window.Store.stats();
-    const solved = window.Store.todaySolved(); const GOAL = 20; const pct = Math.min(100, Math.round(solved / GOAL * 100)); const done = solved >= GOAL;
-    return '<div class="ds-card ds-card--sm stack" style="gap:14px">' +
-      '<div class="row" style="gap:16px"><span class="mode-ic" style="background:var(--brand);color:#fff">' + ic('flame', 22) + '</span>' +
-      '<div class="grow"><div style="font-weight:700;color:var(--text-strong)">С возвращением!</div>' +
-      '<div class="muted" style="font-size:var(--text-sm)">' + (st.streak ? ('Серия ' + st.streak + ' ' + plural(st.streak, 'день', 'дня', 'дней') + ' · ') : '') + st.attempts + ' ' + plural(st.attempts, 'тренировка', 'тренировки', 'тренировок') + ' · средний балл ' + st.avgPct + '%</div></div>' +
-      '<a class="ds-btn ds-btn--secondary ds-btn--sm" href="#/cabinet">Кабинет ' + ic('arrow-right', 16) + '</a></div>' +
-      '<div class="ds-progress' + (done ? ' ds-progress--success' : '') + '"><div class="ds-progress__head"><span class="ds-progress__label">' + (done ? 'Цель дня выполнена!' : 'Цель дня') + '</span><span class="ds-progress__count">' + solved + ' / ' + GOAL + ' ' + plural(solved, 'вопрос', 'вопроса', 'вопросов') + '</span></div><div class="ds-progress__track"><div class="ds-progress__fill" style="width:' + pct + '%"></div></div></div>' +
-      '</div>';
   }
   function wireGo() {
     document.querySelectorAll('[data-go]').forEach(el => {
@@ -558,12 +584,27 @@
     };
   }
 
+  function profileBanner(isParent) {
+    const prof = window.Store.profile;
+    if (prof) {
+      const initials = String(prof.name).trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+      return '<div class="ds-card ds-card--sm" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+        '<span class="mode-ic" style="background:var(--brand);color:#fff;font-weight:800;font-size:15px;font-family:var(--font-sans)">' + esc(initials) + '</span>' +
+        '<div class="grow"><div style="font-weight:700;color:var(--text-strong)">' + esc(prof.name) + '</div><div class="muted" style="font-size:13px">' + esc(prof.cls) + ' · вход по коду учителя · данные на этом устройстве</div></div>' +
+        '<div class="wrapline"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/login">' + ic('arrow-right-left', 15) + ' Сменить</a>' +
+        '<button class="ds-btn ds-btn--ghost ds-btn--sm" data-logout>' + ic('log-out', 15) + ' Выйти</button></div></div>';
+    }
+    return '<div class="ds-card ds-card--sm" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+      '<span class="mode-ic">' + ic('user', 20) + '</span>' +
+      '<div class="grow"><div style="font-weight:700;color:var(--text-strong)">Гость (без входа)</div><div class="muted" style="font-size:13px">' + (isParent ? 'Показан прогресс этого устройства. Если у ребёнка есть код от учителя — войдите, чтобы кабинет стал именным.' : 'Всё работает и так. А если учитель выдал код — войди, и кабинет станет именным.') + '</div></div>' +
+      '<a class="ds-btn ds-btn--secondary ds-btn--sm" href="#/login">' + ic('badge-check', 15) + ' Ввести код</a></div>';
+  }
   function studentDash(role) {
     const st = window.Store.stats();
     const isParent = role === 'parent';
-    const who = isParent ? 'вашего ребёнка' : 'тебя';
+    const banner = profileBanner(isParent);
     if (st.attempts === 0) {
-      return wrapMount('<div class="ds-card ds-card--md"><div class="empty"><span class="empty__ic">' + ic('sparkles', 26) + '</span>' +
+      return wrapMount(banner + '<div class="ds-card ds-card--md"><div class="empty"><span class="empty__ic">' + ic('sparkles', 26) + '</span>' +
         '<div style="font-weight:700;color:var(--text-strong);font-size:var(--text-md)">Здесь появится прогресс</div>' +
         '<p class="muted" style="max-width:420px;margin:8px auto 18px">' + (isParent ? 'Как только ребёнок начнёт тренироваться на этом устройстве, тут будут видны успехи, слабые места и рекомендации.' : 'Пройди первую тренировку — и здесь появятся твоя статистика, достижения и умные рекомендации.') + '</p>' +
         '<a class="ds-btn ds-btn--primary ds-btn--md" href="#/train">' + ic('graduation-cap', 18) + ' Начать тренировку</a></div></div>' +
@@ -585,7 +626,7 @@
     const reco = recommendations(isParent);
     const ach = isParent ? '' : achievements(st);
     const recent = recentList();
-    return wrapMount(kpis + (isParent ? parentNote() : '') + reco + dash + typeInsight(st) + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent + (isParent ? '' : resetRow()));
+    return wrapMount(banner + kpis + (isParent ? parentNote() : '') + reco + dash + typeInsight(st) + (ach ? '<div class="ds-card ds-card--sm stack" style="gap:14px"><div style="font-weight:700;color:var(--text-strong)">Достижения</div>' + ach + '</div>' : '') + recent + (isParent ? '' : resetRow()));
   }
   function resetRow() { return '<div style="text-align:center;padding-top:4px"><button class="ds-btn ds-btn--ghost ds-btn--sm" data-reset>' + ic('rotate-ccw', 15) + ' Сбросить весь прогресс</button></div>'; }
   function wrapMount(html) { const o = new String(html); return o; }
@@ -640,7 +681,7 @@
       '<div class="muted" style="font-size:13px;margin-top:-4px">Подобраны по твоим результатам — что повторить в первую очередь.</div>' + list + '</div>';
   }
   function achievements(st) {
-    const hist = window.Store.history();
+    const hist = window.Store.myHistory();
     const has5 = hist.some(h => h.g5 === 5);
     const subjN = Object.keys(st.bySubject).length;
     const didMistakes = hist.some(h => h.mode === 'mistakes');
@@ -696,13 +737,46 @@
       '<tr><td style="font-weight:600;color:var(--text-strong)">' + esc(s.name) + '</td><td>' + (s.pct != null ? '<span class="dot" style="background:' + gColor(window.Engine.gradeFor(s.pct)) + '"></span> ' + s.pct + '%' : '<span class="muted">—</span>') + '</td><td>' + (s.attempts != null ? s.attempts : '<span class="muted">—</span>') + '</td></tr>').join('');
     const table = '<div class="ds-card ds-card--sm" style="overflow:auto"><div style="font-weight:700;color:var(--text-strong);margin-bottom:12px">Класс ' + esc(cls.name) + (cls.teacher ? ' · ' + esc(cls.teacher) : '') + ' · по возрастанию результата</div>' +
       '<table class="roster"><thead><tr><th>Ученик</th><th>Балл</th><th>Тестов</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    if (App.teacherCodes) return selector + teacherCodesView(cls) + teacherImportPanel(true);
     return selector + kpis + table + teacherImportPanel(true);
+  }
+  function teacherCodesView(cls) {
+    const rows = cls.students.map(s => {
+      const code = window.Engine.makeStudentCode(s.name, cls.name);
+      return '<tr><td style="font-weight:600;color:var(--text-strong)">' + esc(s.name) + '</td><td style="font-family:var(--font-mono);font-size:13px">' + esc(code) + '</td></tr>';
+    }).join('');
+    return '<div class="ds-card ds-card--md stack" style="gap:14px">' +
+      '<div class="row" style="justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="font-weight:700;color:var(--text-strong)">' + ic('badge-check', 18) + ' Коды для входа · ' + esc(cls.name) + '</div>' +
+      '<div class="wrapline"><button class="ds-btn ds-btn--primary ds-btn--sm" data-tprint>' + ic('file-text', 15) + ' Печать карточек</button>' +
+      '<button class="ds-btn ds-btn--secondary ds-btn--sm" data-tcodes-close>Назад к классу</button></div></div>' +
+      '<div class="muted" style="font-size:var(--text-sm)">Выдайте каждому ученику его код (можно распечатать карточки или разослать текстом). Ученик нажимает «У меня есть код от учителя» на главной — и кабинет становится именным. Код содержит только имя и класс.</div>' +
+      '<div style="overflow:auto"><table class="roster"><thead><tr><th>Ученик</th><th>Код входа</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }
+  function renderPrintCards(cls) {
+    const base = location.origin + location.pathname;
+    const cards = cls.students.map(s => {
+      const code = window.Engine.makeStudentCode(s.name, cls.name);
+      const url = base + '#/login?c=' + encodeURIComponent(code);
+      let qr = '';
+      try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(url); q.make(); qr = q.createSvgTag(3, 0); } } catch (e) { qr = ''; }
+      return '<div class="pcard"><div class="pcard__head"><span class="pcard__badge">2200</span><div><div class="pcard__name">' + esc(s.name) + '</div><div class="pcard__cls">' + esc(cls.name) + ' класс · Тренажёр Школы № 2200</div></div></div>' +
+        (qr ? '<div class="pcard__qr">' + qr + '</div>' : '') +
+        '<div class="pcard__code">' + esc(code) + '</div>' +
+        '<div class="pcard__hint">Отсканируй QR камерой телефона или открой сайт и нажми «У меня есть код от учителя».</div></div>';
+    }).join('');
+    app.innerHTML = '<div class="wrap stack" style="gap:16px">' +
+      '<div class="no-print wrapline"><button class="ds-btn ds-btn--primary ds-btn--md" data-print-now>' + ic('file-text', 17) + ' Печать</button>' +
+      '<button class="ds-btn ds-btn--secondary ds-btn--md" data-print-back>' + ic('arrow-left', 17) + ' Назад</button>' +
+      '<span class="muted" style="font-size:13px;align-self:center">Карточки входа · ' + esc(cls.name) + ' · ' + cls.students.length + ' шт.</span></div>' +
+      '<div class="print-cards">' + cards + '</div></div>';
+    window.scrollTo(0, 0);
   }
   function teacherImportPanel(has) {
     if (!App.teacherImport) {
       return '<div class="ds-card ds-card--sm" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">' +
         '<div class="muted" style="font-size:var(--text-sm)">' + ic('shield-check', 16) + ' Данные класса хранятся только на этом устройстве и никуда не отправляются.</div>' +
-        '<div class="wrapline"><button class="ds-btn ds-btn--primary ds-btn--sm" data-timport>' + ic('users', 16) + ' ' + (has ? 'Обновить список' : 'Импортировать класс') + '</button>' +
+        '<div class="wrapline">' + (has ? '<button class="ds-btn ds-btn--success ds-btn--sm" data-tcodes>' + ic('badge-check', 15) + ' Коды для входа</button>' : '') +
+        '<button class="ds-btn ds-btn--primary ds-btn--sm" data-timport>' + ic('users', 16) + ' ' + (has ? 'Обновить список' : 'Импортировать класс') + '</button>' +
         (has ? '<button class="ds-btn ds-btn--ghost ds-btn--sm" data-tclear>' + ic('rotate-ccw', 15) + ' Очистить</button>' : '') + '</div></div>';
     }
     const example = 'Класс; Ученик; Учитель; Балл; Тестов\n8А; Иванов Иван; Иванова М.П.; 72; 5\n8А; Петрова Мария; Иванова М.П.\n9Б; Сидоров Пётр; Смирнов А.А.; 45; 3';
@@ -746,6 +820,51 @@
 
   /* ---------- mount helpers for cabinet dynamic bits ---------- */
   function cabinetMount() { }
+
+  /* ---------- LOGIN (код от учителя; всегда можно пропустить) ---------- */
+  function viewLogin(badCode) {
+    const known = window.Store.knownProfiles();
+    const knownHtml = known.length
+      ? '<div class="stack" style="gap:10px"><div style="font-size:var(--text-sm);font-weight:700;color:var(--text-strong)">На этом устройстве уже входили</div><div class="wrapline">' +
+        known.map(k => '<button class="gpill" data-loginas="' + esc(k.code) + '">' + ic('user', 14) + ' <b>' + esc(k.name) + '</b>&nbsp;· ' + esc(k.cls) + '</button>').join('') + '</div></div>'
+      : '';
+    const html = '<div class="wrap narrow view-enter stack" style="gap:18px">' +
+      '<a class="ds-btn ds-btn--ghost ds-btn--sm" href="#/" style="align-self:flex-start">' + ic('arrow-left', 17) + ' На главную</a>' +
+      '<div><h1 style="font-size:var(--text-2xl)">Вход для ученика</h1><p class="muted" style="margin-top:6px">Введи код, который выдал учитель — кабинет станет именным.</p></div>' +
+      '<div class="ds-card ds-card--lg stack" style="gap:16px">' +
+        (badCode ? '<div class="ds-callout ds-callout--warning">' + ic('triangle-alert', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Код не распознан. Проверь, что он скопирован целиком (начинается с «T22-»), и попробуй ещё раз.</div></div></div>' : '') +
+        '<div class="ds-field"><label class="ds-field__label" for="login-code">Код входа</label>' +
+        '<input class="ds-input" id="login-code" placeholder="T22-…" autocomplete="off" spellcheck="false" style="font-family:var(--font-mono);letter-spacing:.02em">' +
+        '<div class="ds-field__hint">Код можно вставить из сообщения или ввести с карточки. Если есть QR — просто отсканируй его камерой.</div></div>' +
+        '<div id="login-err"></div>' +
+        '<button class="ds-btn ds-btn--primary ds-btn--lg ds-btn--block" id="login-go">Войти ' + ic('arrow-right', 19) + '</button>' +
+        knownHtml +
+      '</div>' +
+      '<div class="ds-callout ds-callout--support">' + ic('heart-handshake', 20, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__title">Можно и без кода</div><div class="ds-callout__text">Тренажёр полностью работает без входа — результаты просто останутся без имени на этом устройстве.</div></div></div>' +
+      '<a class="ds-btn ds-btn--secondary ds-btn--md" href="#/" style="align-self:flex-start">Продолжить без входа</a>' +
+      '</div>';
+    return {
+      html: html, mount: function () {
+        const inp = document.getElementById('login-code');
+        const tryLogin = function () {
+          const p = window.Engine.parseStudentCode(inp.value);
+          if (!p) { document.getElementById('login-err').innerHTML = '<div class="ds-callout ds-callout--warning">' + ic('triangle-alert', 18, 'ds-callout__icon') + '<div class="ds-callout__body"><div class="ds-callout__text">Код не распознан. Проверь, что скопирован целиком — он начинается с «T22-».</div></div></div>'; return; }
+          window.Store.setProfile({ name: p.name, cls: p.cls, code: window.Engine.makeStudentCode(p.name, p.cls) });
+          go('#/');
+        };
+        document.getElementById('login-go').addEventListener('click', tryLogin);
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
+        inp.focus();
+        document.querySelectorAll('[data-loginas]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            const code = b.getAttribute('data-loginas');
+            const p = window.Engine.parseStudentCode(code);
+            if (p) { window.Store.setProfile({ name: p.name, cls: p.cls, code: code }); go('#/'); }
+          });
+        });
+      }
+    };
+  }
 
   /* ---------- SETTINGS ---------- */
   function viewSettings() {
@@ -800,7 +919,13 @@
     if (again) { const a = again.getAttribute('data-again').split('|'); startTest(a[0], +a[1], 'train'); }
     const rst = e.target.closest && e.target.closest('[data-reset]');
     if (rst) { if (window.confirm('Сбросить весь прогресс на этом устройстве? Историю, статистику и достижения вернуть будет нельзя.')) { window.Store.reset(); render(); } }
+    if (e.target.closest && e.target.closest('[data-logout]')) { window.Store.logout(); render(); return; }
     if (App.route && App.route.name === 'cabinet' && e.target.closest) {
+      if (e.target.closest('[data-tcodes]')) { App.teacherCodes = true; render(); return; }
+      if (e.target.closest('[data-tcodes-close]')) { App.teacherCodes = false; render(); return; }
+      if (e.target.closest('[data-tprint]')) { const r0 = window.Store.getRoster(); if (r0 && r0.classes && r0.classes.length) renderPrintCards(r0.classes[Math.min(App.teacherClass || 0, r0.classes.length - 1)]); return; }
+      if (e.target.closest('[data-print-now]')) { window.print(); return; }
+      if (e.target.closest('[data-print-back]')) { render(); return; }
       if (e.target.closest('[data-timport]')) { App.teacherImport = true; render(); return; }
       if (e.target.closest('[data-timport-cancel]')) { App.teacherImport = false; render(); return; }
       if (e.target.closest('[data-tclear]')) { if (window.confirm('Очистить список класса с этого устройства?')) { window.Store.clearRoster(); App.teacherClass = 0; render(); } return; }
